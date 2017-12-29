@@ -1,23 +1,27 @@
-[ ![Download](https://api.bintray.com/packages/bincrafters/public-conan/somelib%3Abincrafters/images/download.svg) ](https://bintray.com/bincrafters/public-conan/somelib%3Abincrafters/_latestVersion)
-[![Build Status](https://travis-ci.org/bincrafters/conan-somelib.svg?branch=stable%2F0.0.0)](https://travis-ci.org/bincrafters/conan-somelib)
-[![Build status](https://ci.appveyor.com/api/projects/status/sxs9n6vb8nqa92l5?svg=true)](https://ci.appveyor.com/project/BinCrafters/conan-somelib)
+[![Download](https://api.bintray.com/packages/bincrafters/public-conan/flex%3Abincrafters/images/download.svg)](https://bintray.com/bincrafters/public-conan/flex%3Abincrafters/_latestVersion)
+[![Build Status](https://travis-ci.org/bincrafters/conan-flex.svg?branch=stable%2F2.6.4)](https://travis-ci.org/bincrafters/conan-flex)
 
-[Conan.io](https://conan.io) package for [somelib](https://github.com/someauthor/somelib) project
+[Conan.io](https://conan.io) package for [Flex](https://github.com/westes/flex) project
 
-The packages generated with this **conanfile** can be found in [Bintray](https://bintray.com/bincrafters/public-conan/somelib%3Abincrafters).
+![conan-flex](logo.png)
+
+The packages generated with this **conanfile** can be found in [Bintray](https://bintray.com/bincrafters/public-conan/flex%3Abincrafters).
 
 ## For Users: Use this package
 
 ### Basic setup
 
-    $ conan install somelib/0.0.0@bincrafters/stable
+    $ conan install flex/2.6.4@bincrafters/stable
 
 ### Project setup
 
 If you handle multiple dependencies in your project is better to add a *conanfile.txt*
 
     [requires]
-    somelib/0.0.0@bincrafters/stable
+    flex/2.6.4@bincrafters/stable
+
+    [options]
+    shared=False
 
     [generators]
     txt
@@ -48,7 +52,7 @@ The following command both runs all the steps of the conan file, and publishes t
 
 ## Upload
 
-    $ conan upload somelib/0.0.0@bincrafters/stable --all -r bincrafters
+    $ conan upload flex/2.6.4@bincrafters/stable --all -r bincrafters
 
 ## License
-[LICENSE_TYPE](LICENSE)
+[MIT](LICENSE.md)
