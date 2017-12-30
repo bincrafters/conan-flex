@@ -38,7 +38,7 @@ class FlexConan(ConanFile):
         configure_args.append("--disable-static" if self.options.shared else "--enable-static")
         configure_args.append("--disable-nls")
         with tools.chdir("sources"):
-            if tools.cross_building(self.settings):
+            if tools.cross_building(self.settings) and self.settings.os == "Linux":
                 # stage1flex must be built on native arch: https://github.com/westes/flex/issues/78
                 self.run("./configure %s" % " ".join(configure_args))
                 env_build.make(args=["-C", "src", "stage1flex"])
