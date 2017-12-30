@@ -26,20 +26,36 @@ class FlexConan(ConanFile):
         os.rename(extracted_dir, "sources")
 
     def configure(self):
+        del self.settings.compiler.libcxx
         if self.settings.os == "Windows":
             raise Exception("Flex is not supported on Windows.")
 
     def build(self):
         env_build = AutoToolsBuildEnvironment(self)
-        with tools.environment_append(env_build.vars):
-            configure_args = ['--prefix=%s' % self.package_folder]
-            configure_args.append("--enable-shared" if self.options.shared else "--disable-shared")
-            configure_args.append("--disable-static" if self.options.shared else "--enable-static")
-            with tools.chdir("sources"):
-                env_build.fpic = True
-                env_build.configure(args=configure_args)
-                env_build.make(args=["all"])
-                env_build.make(args=["install"])
+        env_build.fpic = True
+        configure_args = ['--prefix=%s' % self.package_folder]
+        configure_args.append("--enable-shared" if self.options.shared else "--disable-shared")
+        configure_args.append("--disable-static" if self.options.shared else "--enable-static")
+        configure_args.append("--disable-nls")
+        with tools.chdir("sources"):
+            if tools.cross_building(self.settings):
+                # stage1flex must be built on native arch: https://github.com/westes/flex/issues/78
+                self.run("./configure %s" % " ".join(configure_args))
+                env_build.make(args=["-C", "src", "stage1flex"])
+                self.run("mv src/stage1flex src/stage1flex.build")
+                env_build.make(args=["distclean"])
+                with tools.environment_append(env_build.vars):
+                    env_build.configure(args=configure_args)
+                    cpu_count_option = "-j%s" % tools.cpu_count()
+                    self.run("make -C src %s || true" % cpu_count_option)
+                    self.run("mv src/stage1flex.build src/stage1flex")
+                    self.run("touch src/stage1flex")
+                    env_build.make(args=["-C", "src"])
+            else:
+                with tools.environment_append(env_build.vars):
+                    env_build.configure(args=configure_args)
+                    env_build.make()
+            env_build.make(args=["install"])
 
     def package(self):
         with tools.chdir("sources"):
