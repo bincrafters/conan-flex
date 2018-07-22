@@ -11,7 +11,7 @@ class FlexConan(ConanFile):
     url = "https://github.com/bincrafters/conan-flex"
     homepage = "https://github.com/westes/flex"
     description = "Flex, the fast lexical analyzer generator"
-    license = "https://github.com/westes/flex/blob/master/COPYING"
+    license = "BSD 2-Clause"
     author = "Bincrafters <bincrafters@gmail.com>"
     exports_sources = ["LICENSE.md"]
     settings = "os", "arch", "compiler", "build_type"
@@ -37,6 +37,8 @@ class FlexConan(ConanFile):
         configure_args.append("--enable-shared" if self.options.shared else "--disable-shared")
         configure_args.append("--disable-static" if self.options.shared else "--enable-static")
         configure_args.append("--disable-nls")
+        if self.settings.compiler == "gcc" and self.settings.compiler.version >= 6:
+            configure_args.append("ac_cv_func_reallocarray=no")
         with tools.chdir("sources"):
             if tools.cross_building(self.settings):
                 # stage1flex must be built on native arch: https://github.com/westes/flex/issues/78
