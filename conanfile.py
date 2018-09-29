@@ -37,7 +37,7 @@ class FlexConan(ConanFile):
         configure_args.append("--enable-shared" if self.options.shared else "--disable-shared")
         configure_args.append("--disable-static" if self.options.shared else "--enable-static")
         configure_args.append("--disable-nls")
-        if self.settings.compiler == "gcc" and self.settings.compiler.version >= 6:
+        if str(self.settings.compiler) == "gcc" and float(str(self.settings.compiler.version)) >= 6:
             configure_args.append("ac_cv_func_reallocarray=no")
         with tools.chdir("sources"):
             if tools.cross_building(self.settings):
