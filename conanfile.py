@@ -11,7 +11,7 @@ class FlexConan(ConanFile):
     url = "https://github.com/bincrafters/conan-flex"
     homepage = "https://github.com/westes/flex"
     description = "Flex, the fast lexical analyzer generator"
-    license = "BSD 2-Clause"
+    license = "BSD-2-Clause"
     author = "Bincrafters <bincrafters@gmail.com>"
     exports_sources = ["LICENSE.md"]
     settings = "os", "arch", "compiler", "build_type"
