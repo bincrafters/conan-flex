@@ -2,13 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import os
-from conans import ConanFile, tools, RunEnvironment
+from conans import ConanFile, tools
 
 
 class TestPackageConan(ConanFile):
-    settings = "os", "compiler", "build_type", "arch"
 
     def test(self):
-        with tools.environment_append(RunEnvironment(self).vars):
-            self.run("flex --version")
-            self.run("flex %s" % os.path.join(self.source_folder, "basic_nr.l"))
+        self.run("flex --version", run_environment=True)
+        self.run("flex %s" % os.path.join(self.source_folder, "basic_nr.l"), run_environment=True)
