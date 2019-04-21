@@ -1,0 +1,25 @@
+diff --git a/src/main.c b/src/main.c
+index e5eac44..0de7327 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -152,6 +152,7 @@ int flex_main (int argc, char *argv[])
+             fflush(stdout);
+             fclose(stdout);
+         }
++#ifdef HAVE_FORK
+         while (wait(&child_status) > 0){
+             if (!WIFEXITED (child_status)
+                 || WEXITSTATUS (child_status) != 0){
+@@ -162,6 +163,9 @@ int flex_main (int argc, char *argv[])
+ 
+             }
+         }
++#else
++        exit_status = 2;
++#endif
+         return exit_status - 1;
+     }
+ 
+-- 
+2.7.4.windows.1
+

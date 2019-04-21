@@ -1,0 +1,51 @@
+diff --git a/src/filter.c b/src/filter.c
+index 71f3635..18e1e6a 100644
+--- a/src/filter.c
++++ b/src/filter.c
+@@ -142,6 +142,7 @@ bool filter_apply_chain (struct filter * chain)
+ 	/* Now we are the right-most unprocessed link in the chain.
+ 	 */
+ 
++#ifdef HAVE_FORK
+ 	fflush (stdout);
+ 	fflush (stderr);
+ 
+@@ -167,6 +168,7 @@ clearerr(stdin);
+ 			flexfatal (_("dup2(pipes[0],0)"));
+ 		close (pipes[0]);
+         fseek (stdin, 0, SEEK_CUR);
++#endif
+         ungetc(' ', stdin); /* still an evil hack, but one that works better */
+         (void)fgetc(stdin); /* on NetBSD than the fseek attempt does */
+ 
+@@ -185,6 +187,7 @@ clearerr(stdin);
+                     chain->argv[0]);
+ 		}
+ 
++#ifdef HAVE_FORK
+ 		FLEX_EXIT (1);
+ 	}
+ 
+@@ -194,6 +197,7 @@ clearerr(stdin);
+ 		flexfatal (_("dup2(pipes[1],1)"));
+ 	close (pipes[1]);
+     fseek (stdout, 0, SEEK_CUR);
++#endif
+ 
+ 	return true;
+ }
+@@ -322,9 +326,11 @@ int filter_tee_header (struct filter *chain)
+ 		lerr (_("error closing output file %s"),
+ 			outfilename ? outfilename : "<stdout>");
+ 
++#ifdef HAVE_FORK
+ 	while (wait (0) > 0) ;
+ 
+ 	FLEX_EXIT (0);
++#endif
+ 	return 0;
+ }
+ 
+-- 
+2.7.4.windows.1
+

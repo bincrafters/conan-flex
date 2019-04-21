@@ -1,0 +1,17 @@
+diff --git a/configure.ac b/configure.ac
+index 55e774b..a01758b 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -134,6 +134,9 @@ AC_SUBST([LIBPTHREAD])
+ 
+ AC_CHECK_LIB(m, log10)
+ 
++# Needed for MSYS2's MinGW-w64.
++AC_SEARCH_LIBS(regcomp, [regex gnurx])
++
+ # Checks for typedefs, structures, and compiler characteristics.
+ 
+ AC_HEADER_STDBOOL
+-- 
+2.7.4.windows.1
+

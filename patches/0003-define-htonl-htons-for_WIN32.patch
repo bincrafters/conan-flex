@@ -1,0 +1,23 @@
+diff --git a/src/tables.c b/src/tables.c
+index 980d2e9..ea795a9 100644
+--- a/src/tables.c
++++ b/src/tables.c
+@@ -36,6 +36,15 @@
+ #include "flexdef.h"
+ #include "tables.h"
+ 
++#if defined(_WIN32)
++#include <stdint.h>
++#define htonl(_val) ( ((uint16_t)(_val) & 0xff00) >> 8 | ((uint16_t)(_val) & 0xff) << 8 )
++#define htons(_val) ( ((uint32_t)(_val) & 0xff000000) >> 24 | \
++                      ((uint32_t)(_val) & 0x00ff0000) >>  8 | \
++                      ((uint32_t)(_val) & 0x0000ff00) <<  8 | \
++                      ((uint32_t)(_val) & 0x000000ff) << 24 )
++#endif
++
+ /** Convert size_t to t_flag.
+  *  @param n in {1,2,4}
+  *  @return YYTD_DATA*. 
+-- 
+2.7.4.windows.1
+
