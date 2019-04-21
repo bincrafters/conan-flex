@@ -1,0 +1,76 @@
+diff --git a/configure.ac b/configure.ac
+index a01758b..8f09fb2 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -143,6 +143,24 @@ AC_HEADER_STDBOOL
+ AC_C_CONST
+ AC_TYPE_SIZE_T
+
++# Define FOPEN_MODE_READ and FOPEN_MODE_WRITE strings.
++# Windows needs "rb" and "wb" respectively due to a bug
++# in msvcrt:
++# ftell() is unusable on Windows in the face of text files
++# that use just LF and not Windows-style CR-LF as newlines
++# http://support.microsoft.com/kb/68337
++
++case $host_os in
++  mingw*)
++    BINARY="b"
++    ;;
++  *)
++    BINARY=""
++    ;;
++esac
++AC_DEFINE_UNQUOTED([FOPEN_MODE_READ], "r${BINARY}", On Windows must add 'b' to fopen calls.)
++AC_DEFINE_UNQUOTED([FOPEN_MODE_WRITE], "w${BINARY}", On Windows must add 'b' to fopen calls.)
++
+ # Checks for library functions.
+
+ AC_FUNC_ALLOCA
+diff --git a/src/main.c b/src/main.c
+index 0de7327..3a02d50 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -419,7 +419,7 @@ void check_options (void)
+ 			snprintf (pname, nbytes, tablesfile_template, prefix);
+ 		}
+ 
+-		if ((tablesout = fopen (tablesfilename, "w")) == NULL)
++		if ((tablesout = fopen (tablesfilename, FOPEN_MODE_WRITE)) == NULL)
+ 			lerr (_("could not create %s"), tablesfilename);
+ 		free(pname);
+ 		tablesfilename = 0;
+@@ -435,7 +435,7 @@ void check_options (void)
+ 			flexerror (_("could not write tables header"));
+ 	}
+ 
+-	if (skelname && (skelfile = fopen (skelname, "r")) == NULL)
++	if (skelname && (skelfile = fopen (skelname, FOPEN_MODE_READ)) == NULL)
+ 		lerr (_("can't open skeleton file %s"), skelname);
+ 
+ 	if (reentrant) {
+@@ -1506,7 +1506,7 @@ void readin (void)
+ 	}
+ 
+ 	if (backing_up_report) {
+-		backing_up_file = fopen (backing_name, "w");
++		backing_up_file = fopen (backing_name, FOPEN_MODE_WRITE);
+ 		if (backing_up_file == NULL)
+ 			lerr (_
+ 				("could not create backing-up info file %s"),
+diff --git a/src/scan.l b/src/scan.l
+index 66db864..7031fe8 100644
+--- a/src/scan.l
++++ b/src/scan.l
+@@ -1032,7 +1032,7 @@ void set_input_file( char *file )
+ 	if ( file && strcmp( file, "-" ) )
+ 		{
+ 		infilename = xstrdup(file);
+-		yyin = fopen( infilename, "r" );
++		yyin = fopen( infilename, FOPEN_MODE_READ );
+ 
+ 		if ( yyin == NULL )
+ 			lerr( _( "can't open %s" ), file );
+-- 
+2.7.4.windows.1
+

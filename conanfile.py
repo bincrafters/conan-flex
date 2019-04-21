@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from conans.errors import ConanInvalidConfiguration
 import os
+import glob
 from conans import ConanFile, AutoToolsBuildEnvironment, tools
 
 
@@ -15,33 +15,49 @@ class FlexConan(ConanFile):
     topics = ("conan", "flex", "lex", "lexer", "lexical analyzer generator")
     license = "BSD-2-Clause"
     author = "Bincrafters <bincrafters@gmail.com>"
-    exports_sources = ["LICENSE.md"]
+    exports = ["LICENSE.md"]
+    exports_sources = ["patches/*.patch"]
     settings = "os", "arch", "compiler", "build_type"
     options = {"shared": [True, False]}
     default_options = {'shared': 'False'}
+    _source_subfolder = "source_subfolder"
 
     def source(self):
         source_url = "https://github.com/westes/flex"
         tools.get("{0}/releases/download/v{1}/{2}-{3}.tar.gz".format(source_url, self.version,self.name, self.version),
                   sha256="e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995")
         extracted_dir = self.name + "-" + self.version
-        os.rename(extracted_dir, "sources")
+        os.rename(extracted_dir, self._source_subfolder)
 
     def configure(self):
         del self.settings.compiler.libcxx
-        if self.settings.os == "Windows":
-            raise ConanInvalidConfiguration("Flex is not supported on Windows.")
+
+    def requirements(self):
+        if tools.os_info.is_windows:
+            self.requires("pcre2/10.32@bincrafters/stable")
 
     def build(self):
-        env_build = AutoToolsBuildEnvironment(self)
+        for filename in glob.glob("patches/*.patch"):
+            self.output.info('applying patch "%s"' % filename)
+            tools.patch(base_path=self._source_subfolder, patch_file=filename)
+
+        env_build = AutoToolsBuildEnvironment(self, win_bash=tools.os_info.is_windows)
         env_build.fpic = True
-        configure_args = ['--prefix=%s' % self.package_folder]
-        configure_args.append("--enable-shared" if self.options.shared else "--disable-shared")
-        configure_args.append("--disable-static" if self.options.shared else "--enable-static")
-        configure_args.append("--disable-nls")
+        configure_args = ["--disable-nls"]
+        if self.options.shared:
+            configure_args.extend(["--enable-shared", "--disable-static"])
+        else:
+            configure_args.extend(["--disable-shared", "--enable-shared"])
+
         if str(self.settings.compiler) == "gcc" and float(str(self.settings.compiler.version)) >= 6:
             configure_args.append("ac_cv_func_reallocarray=no")
-        with tools.chdir("sources"):
+        with tools.chdir(self._source_subfolder):
+            if tools.os_info.is_windows:
+                tools.save("regex.h", "#define PCRE2_CODE_UNIT_WIDTH 8\n#include <pcre2posix.h>")
+                if not os.path.isdir("sys"):
+                    os.makedirs("sys")
+                tools.download("https://raw.githubusercontent.com/win32ports/sys_wait_h/master/sys/wait.h", os.path.join("sys", "wait.h"))
+                env_build.include_paths.append(os.getcwd())
             if tools.cross_building(self.settings):
                 # stage1flex must be built on native arch: https://github.com/westes/flex/issues/78
                 self.run("./configure %s" % " ".join(configure_args))
@@ -62,8 +78,7 @@ class FlexConan(ConanFile):
             env_build.make(args=["install"])
 
     def package(self):
-        with tools.chdir("sources"):
-            self.copy(pattern="COPYING", dst="licenses")
+        self.copy(pattern="COPYING", dst="licenses", src=self._source_subfolder)
 
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
