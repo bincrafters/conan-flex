@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from conans.errors import ConanInvalidConfiguration
 import os
 from conans import ConanFile, AutoToolsBuildEnvironment, tools
 
@@ -11,24 +12,25 @@ class FlexConan(ConanFile):
     url = "https://github.com/bincrafters/conan-flex"
     homepage = "https://github.com/westes/flex"
     description = "Flex, the fast lexical analyzer generator"
+    topics = ("conan", "flex", "lex", "lexer", "lexical analyzer generator")
     license = "BSD-2-Clause"
     author = "Bincrafters <bincrafters@gmail.com>"
     exports_sources = ["LICENSE.md"]
     settings = "os", "arch", "compiler", "build_type"
     options = {"shared": [True, False]}
-    default_options = "shared=False"
-
+    default_options = {'shared': 'False'}
 
     def source(self):
         source_url = "https://github.com/westes/flex"
-        tools.get("{0}/releases/download/v{1}/{2}-{3}.tar.gz".format(source_url, self.version,self.name, self.version))
+        tools.get("{0}/releases/download/v{1}/{2}-{3}.tar.gz".format(source_url, self.version,self.name, self.version),
+                  sha256="e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995")
         extracted_dir = self.name + "-" + self.version
         os.rename(extracted_dir, "sources")
 
     def configure(self):
         del self.settings.compiler.libcxx
         if self.settings.os == "Windows":
-            raise Exception("Flex is not supported on Windows.")
+            raise ConanInvalidConfiguration("Flex is not supported on Windows.")
 
     def build(self):
         env_build = AutoToolsBuildEnvironment(self)

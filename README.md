@@ -1,5 +1,5 @@
 [![Download](https://api.bintray.com/packages/bincrafters/public-conan/flex%3Abincrafters/images/download.svg)](https://bintray.com/bincrafters/public-conan/flex%3Abincrafters/_latestVersion)
-[![Build Status](https://travis-ci.org/bincrafters/conan-flex.svg?branch=stable%2F2.6.4)](https://travis-ci.org/bincrafters/conan-flex)
+[![Build Status](https://travis-ci.com/bincrafters/conan-flex.svg?branch=stable%2F2.6.4)](https://travis-ci.com/bincrafters/conan-flex)
 
 [Conan.io](https://conan.io) package for [Flex](https://github.com/westes/flex) project
 
