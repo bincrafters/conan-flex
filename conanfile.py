@@ -18,8 +18,8 @@ class FlexConan(ConanFile):
     exports = ["LICENSE.md"]
     exports_sources = ["patches/*.patch"]
     settings = "os", "arch", "compiler", "build_type"
-    options = {"shared": [True, False]}
-    default_options = {'shared': 'False'}
+    options = {"shared": [True, False], "fPIC": [True, False]}
+    default_options = {'shared': False, "fPIC": True }
     _source_subfolder = "source_subfolder"
 
     def source(self):
@@ -28,6 +28,10 @@ class FlexConan(ConanFile):
                   sha256="e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995")
         extracted_dir = self.name + "-" + self.version
         os.rename(extracted_dir, self._source_subfolder)
+
+    def config_options(self):
+        if self.settings.os == "Windows":
+            del self.options.fPIC
 
     def configure(self):
         del self.settings.compiler.libcxx
@@ -42,7 +46,6 @@ class FlexConan(ConanFile):
             tools.patch(base_path=self._source_subfolder, patch_file=filename)
 
         env_build = AutoToolsBuildEnvironment(self, win_bash=tools.os_info.is_windows)
-        env_build.fpic = True
         configure_args = ["--disable-nls"]
         if self.options.shared:
             configure_args.extend(["--enable-shared", "--disable-static"])
