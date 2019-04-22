@@ -37,7 +37,7 @@ class FlexConan(ConanFile):
             self.requires("pcre2/10.32@bincrafters/stable")
 
     def build(self):
-        for filename in glob.glob("patches/*.patch"):
+        for filename in sorted(glob.glob("patches/*.patch")):
             self.output.info('applying patch "%s"' % filename)
             tools.patch(base_path=self._source_subfolder, patch_file=filename)
 
