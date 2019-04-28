@@ -4,7 +4,8 @@ from conans import ConanFile, AutoToolsBuildEnvironment, tools
 
 
 class ConanfileBase(ConanFile):
-    name = "flex"
+    _base_name = "flex"
+    name = _base_name
     version = "2.6.4"
     url = "https://github.com/bincrafters/conan-flex"
     homepage = "https://github.com/westes/flex"
@@ -19,8 +20,8 @@ class ConanfileBase(ConanFile):
 
     def source(self):
         sha256 = "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995"
-        tools.get("{0}/releases/download/v{1}/{2}-{3}.tar.gz".format(self.homepage, self.version, self.name, self.version), sha256=sha256)
-        extracted_dir = self.name + "-" + self.version
+        tools.get("{0}/releases/download/v{1}/{2}-{3}.tar.gz".format(self.homepage, self.version, self._base_name, self.version), sha256=sha256)
+        extracted_dir = self._base_name + "-" + self.version
         os.rename(extracted_dir, self._source_subfolder)
 
     def configure(self):
