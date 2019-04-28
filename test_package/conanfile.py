@@ -1,12 +1,26 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-from conans import ConanFile, tools
+from conans import CMake, ConanFile, tools, RunEnvironment
 
 
 class TestPackageConan(ConanFile):
+    settings = "os", "arch", "compiler", "build_type",
+    generators = 'cmake',
+
+    def build_requirements(self):
+        version = self.requires["flex"].ref.version
+        user = self.requires["flex"].ref.user
+        channel = self.requires["flex"].ref.channel
+
+        self.build_requires("flex_installer/{}@{}/{}".format(version, user, channel))
+
+    def build(self):
+        cmake = CMake(self)
+        cmake.configure()
+        cmake.build()
 
     def test(self):
-        self.run("flex --version", run_environment=True)
-        self.run("flex %s" % os.path.join(self.source_folder, "basic_nr.l"), run_environment=True)
+        if not tools.cross_building(self.settings):
+            with tools.environment_append(RunEnvironment(self).vars):
+                cmake = CMake(self)
+                cmake.test()
