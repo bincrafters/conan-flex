@@ -5,13 +5,13 @@ from conans import tools
 
 
 class Conanfile(ConanfileBase):
-    name = ConanfileBase.name
+    name = "flex"
     version = ConanfileBase.version
     exports = ConanfileBase.exports + ["conanfile_base.py"]
 
     settings = "os", "arch", "compiler", "build_type"
     options = {"shared": [True, False], "fPIC": [True, False]}
-    default_options = {'shared': False, "fPIC": True}
+    default_options = {"shared": False, "fPIC": True}
 
     def config_options(self):
         if self.settings.os == "Windows":
