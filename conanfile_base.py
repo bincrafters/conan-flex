@@ -38,7 +38,7 @@ class ConanfileBase(ConanFile):
 
         env_build = AutoToolsBuildEnvironment(self, win_bash=tools.os_info.is_windows)
         configure_args = ["--disable-nls"]
-        if self.options.shared:
+        if "shared" in self.options and self.options.shared:
             configure_args.extend(["--enable-shared", "--disable-static"])
         else:
             configure_args.extend(["--disable-shared", "--enable-shared"])
