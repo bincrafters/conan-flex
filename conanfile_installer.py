@@ -5,7 +5,7 @@ from conanfile_base import ConanfileBase
 
 
 class ConanfileInstaller(ConanfileBase):
-    name = ConanfileBase.name + "_installer"
+    name = "flex_installer"
     version = ConanfileBase.version
     exports = ConanfileBase.exports + ["conanfile_base.py"]
 
