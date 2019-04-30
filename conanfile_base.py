@@ -41,7 +41,7 @@ class ConanfileBase(ConanFile):
     def detected_os():
         if tools.os_info.is_macos:
             return "Macos"
-        if tools.OSInfo().is_windows:
+        if tools.os_info.is_windows:
             return "Windows"
         return platform.system()
 
