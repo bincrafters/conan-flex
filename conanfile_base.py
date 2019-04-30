@@ -31,11 +31,14 @@ class ConanfileBase(ConanFile):
         if tools.os_info.is_windows:
             self.requires("pcre2/10.32@bincrafters/stable")
 
-    def build(self):
+    def _apply_patches(self):
         for filename in sorted(glob.glob("patches/*.patch")):
             self.output.info('applying patch "%s"' % filename)
             tools.patch(base_path=self._source_subfolder, patch_file=filename)
 
+    def build(self):
+        if tools.os_info.is_windows:
+            self._apply_patches()
         env_build = AutoToolsBuildEnvironment(self, win_bash=tools.os_info.is_windows)
         configure_args = ["--disable-nls"]
         if "shared" in self.options and self.options.shared:
