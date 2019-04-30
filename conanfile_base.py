@@ -36,6 +36,15 @@ class ConanfileBase(ConanFile):
             self.output.info('applying patch "%s"' % filename)
             tools.patch(base_path=self._source_subfolder, patch_file=filename)
 
+    @property
+    def cross_building(self):
+        if tools.cross_building(self.settings):
+            if self._the_os == self.detected_os():
+                if self._the_arch == "x86" and tools.detected_architecture() == "x86_64":
+                    return False
+            return True
+        return False
+
     def build(self):
         if tools.os_info.is_windows:
             self._apply_patches()
@@ -55,7 +64,7 @@ class ConanfileBase(ConanFile):
                     os.makedirs("sys")
                 tools.download("https://raw.githubusercontent.com/win32ports/sys_wait_h/master/sys/wait.h", os.path.join("sys", "wait.h"))
                 env_build.include_paths.append(os.getcwd())
-            if tools.cross_building(self.settings):
+            if self.cross_building:
                 # stage1flex must be built on native arch: https://github.com/westes/flex/issues/78
                 self.run("./configure %s" % " ".join(configure_args))
                 env_build.make(args=["-C", "src", "stage1flex"])
