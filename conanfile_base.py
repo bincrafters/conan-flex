@@ -1,5 +1,6 @@
 import os
 import glob
+import platform
 from conans import ConanFile, AutoToolsBuildEnvironment, tools
 
 
@@ -35,6 +36,22 @@ class ConanfileBase(ConanFile):
         for filename in sorted(glob.glob("patches/*.patch")):
             self.output.info('applying patch "%s"' % filename)
             tools.patch(base_path=self._source_subfolder, patch_file=filename)
+
+    @staticmethod
+    def detected_os():
+        if tools.OSInfo().is_macos:
+            return "Macos"
+        if tools.OSInfo().is_windows:
+            return "Windows"
+        return platform.system()
+
+    @property
+    def _the_os(self):
+        return self.settings.get_safe("os") or self.settings.get_safe("os_build")
+
+    @property
+    def _the_arch(self):
+        return self.settings.get_safe("arch") or self.settings.get_safe("arch_build")
 
     @property
     def cross_building(self):
