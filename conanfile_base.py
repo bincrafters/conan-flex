@@ -39,7 +39,7 @@ class ConanfileBase(ConanFile):
 
     @staticmethod
     def detected_os():
-        if tools.OSInfo().is_macos:
+        if tools.os_info.is_macos:
             return "Macos"
         if tools.OSInfo().is_windows:
             return "Windows"
