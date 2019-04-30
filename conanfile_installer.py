@@ -9,11 +9,11 @@ class ConanfileInstaller(ConanfileBase):
     version = ConanfileBase.version
     exports = ConanfileBase.exports + ["conanfile_base.py"]
 
-    settings = "os_build", "arch_build", "compiler"
-
+    settings = "os_build", "arch_build", "compiler", "arch"
 
     def package_id(self):
         del self.info.settings.compiler
+        del self.info.settings.arch
 
     def package_info(self):
         bindir = os.path.join(self.package_folder, "bin")
