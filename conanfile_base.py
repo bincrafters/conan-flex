@@ -70,7 +70,7 @@ class ConanfileBase(ConanFile):
         if "shared" in self.options and self.options.shared:
             configure_args.extend(["--enable-shared", "--disable-static"])
         else:
-            configure_args.extend(["--disable-shared", "--enable-shared"])
+            configure_args.extend(["--disable-shared", "--enable-static"])
 
         if str(self.settings.compiler) == "gcc" and float(str(self.settings.compiler.version)) >= 6:
             configure_args.append("ac_cv_func_reallocarray=no")
