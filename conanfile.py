@@ -2,6 +2,8 @@
 
 from conanfile_base import ConanfileBase
 from conans import tools
+import shutil
+import os
 
 
 class Conanfile(ConanfileBase):
@@ -19,3 +21,9 @@ class Conanfile(ConanfileBase):
 
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
+
+    def package(self):
+        super(Conanfile, self).package()
+        bindir = os.path.join(self.package_folder, "bin")
+        if os.path.isdir(bindir):
+            shutil.rmtree(bindir)

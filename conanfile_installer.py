@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import shutil
 from conanfile_base import ConanfileBase
 
 
@@ -19,3 +20,12 @@ class ConanfileInstaller(ConanfileBase):
         bindir = os.path.join(self.package_folder, "bin")
         self.output.info('Appending PATH environment variable: {}'.format(bindir))
         self.env_info.PATH.append(bindir)
+
+    def package(self):
+        super(ConanfileInstaller, self).package()
+        libdir = os.path.join(self.package_folder, "lib")
+        incdir = os.path.join(self.package_folder, "include")
+        if os.path.isdir(libdir):
+            shutil.rmtree(libdir)
+        if os.path.isdir(incdir):
+            shutil.rmtree(incdir)
