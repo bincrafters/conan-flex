@@ -81,7 +81,7 @@ class ConanfileBase(ConanFile):
                     os.makedirs("sys")
                 tools.download("https://raw.githubusercontent.com/win32ports/sys_wait_h/master/sys/wait.h", os.path.join("sys", "wait.h"))
                 env_build.include_paths.append(os.getcwd())
-            if self.settings.os == "Linux":
+            if self._the_os == "Linux":
                 # https://github.com/westes/flex/issues/247
                 configure_args.extend(["ac_cv_func_malloc_0_nonnull=yes", "ac_cv_func_realloc_0_nonnull=yes"])
 
