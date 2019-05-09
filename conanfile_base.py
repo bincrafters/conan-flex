@@ -19,6 +19,11 @@ class ConanfileBase(ConanFile):
 
     _source_subfolder = "source_subfolder"
 
+    def build_requirements(self):
+        if tools.os_info.is_windows:
+            if "CONAN_BASH_PATH" not in os.environ:
+                self.build_requires("msys2_installer/latest@bincrafters/stable")
+
     def source(self):
         sha256 = "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995"
         tools.get("{0}/releases/download/v{1}/{2}-{3}.tar.gz".format(self.homepage, self.version, self._base_name, self.version), sha256=sha256)
