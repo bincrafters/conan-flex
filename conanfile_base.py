@@ -75,7 +75,7 @@ class ConanfileBase(ConanFile):
         if str(self.settings.compiler) == "gcc" and float(str(self.settings.compiler.version)) >= 6:
             configure_args.append("ac_cv_func_reallocarray=no")
         with tools.chdir(self._source_subfolder):
-            if tools.os_info.is_windows:
+            if self._the_os == "Windows":
                 tools.save("regex.h", "#define PCRE2_CODE_UNIT_WIDTH 8\n#include <pcre2posix.h>")
                 if not os.path.isdir("sys"):
                     os.makedirs("sys")
