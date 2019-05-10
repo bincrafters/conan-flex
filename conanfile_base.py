@@ -16,6 +16,7 @@ class ConanfileBase(ConanFile):
     author = "Bincrafters <bincrafters@gmail.com>"
     exports = ["LICENSE.md"]
     exports_sources = ["patches/*.patch"]
+    requires = ("m4_installer/1.4.18@bincrafters/stable",)
 
     _source_subfolder = "source_subfolder"
 
