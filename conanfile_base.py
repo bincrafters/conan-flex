@@ -90,13 +90,6 @@ class ConanfileBase(ConanFile):
                 configure_args.extend(["ac_cv_func_malloc_0_nonnull=yes", "ac_cv_func_realloc_0_nonnull=yes"])
                 # https://github.com/easybuilders/easybuild-easyconfigs/pull/5792
                 configure_args.append("ac_cv_func_reallocarray=no")
-
-            tools.replace_in_file(os.path.join("doc", "Makefile.in"),
-                                  "dist_man_MANS = flex.1",
-                                  "dist_man_MANS =")
-            tools.replace_in_file(os.path.join("doc", "Makefile.am"),
-                                  "dist_man_MANS = flex.1",
-                                  "dist_man_MANS =")
             if self.cross_building:
                 # stage1flex must be built on native arch: https://github.com/westes/flex/issues/78
                 self.run("./configure %s" % " ".join(configure_args))
