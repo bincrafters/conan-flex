@@ -1,17 +1,17 @@
-From 00e147d245c989db4a9fb071110eea42f814dfd7 Mon Sep 17 00:00:00 2001
+From 310045e2dadf803dd8685f6addd0e76a21214201 Mon Sep 17 00:00:00 2001
 From: SSE4 <tomskside@gmail.com>
-Date: Fri, 10 May 2019 03:35:25 +0700
+Date: Fri, 10 May 2019 13:08:26 +0700
 Subject: [PATCH] - apply changes from winflexbison
 
 Signed-off-by: SSE4 <tomskside@gmail.com>
 ---
- src/filter.c  | 345 ++++++++++++++++++++++++++++++++++++++++++++++++++++++----
- src/flexdef.h |  13 ++-
- src/main.c    | 161 +++++++++++++++++++++++----
- 3 files changed, 472 insertions(+), 47 deletions(-)
+ src/filter.c  | 440 +++++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ src/flexdef.h |  13 +-
+ src/main.c    | 161 ++++++++++++++++++---
+ 3 files changed, 567 insertions(+), 47 deletions(-)
 
 diff --git a/src/filter.c b/src/filter.c
-index 18e1e6a..3a56547 100644
+index 18e1e6a..bc25104 100644
 --- a/src/filter.c
 +++ b/src/filter.c
 @@ -31,6 +31,148 @@ static const char * check_4_gnu_m4 =
@@ -331,7 +331,7 @@ index 18e1e6a..3a56547 100644
  		fputs (buf, to_c);
  		if (write_header)
  			fputs (buf, to_h);
-@@ -308,32 +521,63 @@ int filter_tee_header (struct filter *chain)
+@@ -308,30 +521,142 @@ int filter_tee_header (struct filter *chain)
  		fputs ("m4_undefine( [[M4_YY_IN_HEADER]])m4_dnl\n", to_h);
  
  		fflush (to_h);
@@ -383,29 +383,108 @@ index 18e1e6a..3a56547 100644
  
  	FLEX_EXIT (0);
 -#endif
-+	return 0;
-+    */
  	return 0;
- }
- 
++    */
++	return 0;
++}
++
 +int main_m4 (int argc, char const **argv, FILE* in, FILE* out);
++
++const char * m4_path()
++{
++    const char * m4 = NULL;
++    if ( !(m4 = getenv("M4"))) {
++        char *slash;
++        m4 = M4;
++        slash = strrchr(M4, '\\');
++        if (slash == NULL)
++            slash = strrchr(M4, '/');
++        if (slash != NULL) {
++            m4 = slash+1;
++            /* break up $PATH */
++            const char *path = getenv("PATH");
++            if (!path) {
++                m4 = M4;
++            } else {
++                int m4_length = strlen(m4);
++                do {
++                    size_t length = strlen(path);
++                    struct stat sbuf;
++
++                    const char *endOfPath = strchr(path, ';');
++                    if (!endOfPath)
++                        endOfPath = path+length;
++
++                    {
++                        const char *pathExt = getenv("PATEXT");
++                        if (!pathExt)
++                            pathExt = ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.RB;.RBW";
++
++                        const char *dot = strchr(m4, '.');
++
++                        char *m4_path = calloc(endOfPath-path + 1 + m4_length + 1, 1);
++
++                        memcpy(m4_path, path, endOfPath-path);
++                        m4_path[endOfPath-path] = '\\';
++                        memcpy(m4_path + (endOfPath-path) + 1, m4, m4_length + 1);
++                        if (stat(m4_path, &sbuf) == 0 &&
++                            (S_ISREG(sbuf.st_mode)) && sbuf.st_mode & S_IXUSR) {
++                            return m4_path;
++                        }
++                        free(m4_path);
++                        if (!dot) {
++
++                            do {
++                                size_t lengthOfPathExt = strlen(pathExt);
++                                const char * endOfPathExt = strchr(pathExt, ';');
++                                if (!endOfPathExt)
++                                    endOfPathExt = pathExt + lengthOfPathExt;
++
++                                char *m4_path = calloc(endOfPath-path + 1 + m4_length + 1 + endOfPathExt - pathExt, 1);
++                                memcpy(m4_path, path, endOfPath-path);
++                                m4_path[endOfPath-path] = '\\';
++                                memcpy(m4_path + (endOfPath-path) + 1, m4, m4_length + 1);
++                                memcpy(m4_path + (endOfPath-path) + 1 + m4_length , pathExt, endOfPathExt - pathExt);
++                                if (stat(m4_path, &sbuf) == 0 &&
++                                    (S_ISREG(sbuf.st_mode)) && sbuf.st_mode & S_IXUSR) {
++                                    return m4_path;
++                                }
++                                free(m4_path);
++
++                                pathExt = endOfPathExt + 1;
++                                if (endOfPathExt[0] == 0)
++                                    break;
++                            }
++                            while (pathExt[0]);
++                        }
++                    }
++                    path = endOfPath+1;
++                    if (endOfPath[0] == 0)
++                        break;
++                } while (path[0]);
++                if (!path[0])
++                    m4 = M4;
++            }
++        }
++    }
++    return m4;
++}
++
 +
 +int filter_m4_p (struct filter *chain)
 +{
 +    char const *argv[10];
 +    int i = 0;
 +
-+    argv[i++] = "M4";
++    argv[i++] = m4_path();
 +    argv[i++] = "-P";
 +    argv[i++] = NULL;
 +
 +	return main_m4 (i-1, argv, chain->in_file, chain->out_file);
-+}
-+
+ }
+ 
  /** Adjust the line numbers in the #line directives of the generated scanner.
-  * After the m4 expansion, the line numbers are incorrect since the m4 macros
-  * can add or remove lines.  This only adjusts line numbers for generated code,
-@@ -355,7 +599,7 @@ int filter_fix_linedirs (struct filter *chain)
+@@ -355,7 +680,7 @@ int filter_fix_linedirs (struct filter *chain)
  	if (!buf)
  		flexerror(_("malloc failed in filter_fix_linedirs"));
  
@@ -414,7 +493,7 @@ index 18e1e6a..3a56547 100644
  
  		regmatch_t m[10];
  
-@@ -423,19 +667,74 @@ int filter_fix_linedirs (struct filter *chain)
+@@ -423,19 +748,88 @@ int filter_fix_linedirs (struct filter *chain)
  			last_was_blank = false;
  		}
  
@@ -465,7 +544,7 @@ index 18e1e6a..3a56547 100644
 +
 +	CmdLine = malloc(sizeof(char) * len);
 +	if (!CmdLine)
-+		return -2;
++		return -1;
 +	memset(CmdLine, 0, sizeof(char) * len);
 +
 +	for (i = 0; i < argc; ++i) {
@@ -477,8 +556,22 @@ index 18e1e6a..3a56547 100644
 +
 +	free(CmdLine);
 +
-+	if (!res)
-+		return -1;
++	if (!res) {
++	    DWORD error = GetLastError();
++	    LPVOID lpMsgBuf;
++
++        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM  | FORMAT_MESSAGE_IGNORE_INSERTS,
++                NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR) &lpMsgBuf, 0, NULL);
++
++        fprintf(stderr, "PATH: %s\n", getenv("PATH"));
++        fprintf(stderr, "PATHEXT: %s\n", getenv("PATHEXT"));
++        fprintf(stderr, "CreateProcess(%s) failed with: %s\n", CmdLine, (LPCSTR) lpMsgBuf);
++        fflush(stderr);
++
++        LocalFree(lpMsgBuf);
++
++        return -1;
++    }
 +
 +	WaitForSingleObject(pi.hThread, INFINITE);
 +	WaitForSingleObject(pi.hProcess, INFINITE);
