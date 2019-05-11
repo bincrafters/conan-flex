@@ -1,0 +1,948 @@
+From 310045e2dadf803dd8685f6addd0e76a21214201 Mon Sep 17 00:00:00 2001
+From: SSE4 <tomskside@gmail.com>
+Date: Fri, 10 May 2019 13:08:26 +0700
+Subject: [PATCH] - apply changes from winflexbison
+
+Signed-off-by: SSE4 <tomskside@gmail.com>
+---
+ src/filter.c  | 440 +++++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ src/flexdef.h |  13 +-
+ src/main.c    | 161 ++++++++++++++++++---
+ 3 files changed, 567 insertions(+), 47 deletions(-)
+
+diff --git a/src/filter.c b/src/filter.c
+index 18e1e6a..bc25104 100644
+--- a/src/filter.c
++++ b/src/filter.c
+@@ -31,6 +31,148 @@ static const char * check_4_gnu_m4 =
+ /** global chain. */
+ struct filter *output_chain = NULL;
+ 
++static const char letters[] =
++"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
++
++#include <fcntl.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <stdio.h>
++#include <process.h>
++#include <io.h>
++
++/* Adds temporary dir if environment variable FLEX_TMP_DIR is set */
++char* add_tmp_dir(const char* tmp_file_name)
++{
++	char* new_tmp_file_name = 0;
++	size_t tmp_dir_len = 0;
++	size_t len = 0;
++	char const *tmp_dir = getenv ("FLEX_TMP_DIR");
++
++	if (!tmp_dir)
++		return _strdup(tmp_file_name);
++
++	tmp_dir_len = strlen(tmp_dir);
++	len = tmp_dir_len + strlen(tmp_file_name) + 2; // two extra chars: '\' between dir and file name and '\0' at the end
++	new_tmp_file_name = (char*)malloc(len*sizeof(char));
++	if (tmp_dir[tmp_dir_len-1] == '\\' || tmp_dir[tmp_dir_len-1] == '/')
++		sprintf(new_tmp_file_name, "%s%s", tmp_dir, tmp_file_name);
++	else
++		sprintf(new_tmp_file_name, "%s\\%s", tmp_dir, tmp_file_name);
++
++	return new_tmp_file_name;
++}
++
++int max_temp_file_names = 100;
++int num_temp_file_names = 0;
++char* temp_file_names[100];
++/* Generate a temporary file name based on TMPL.  TMPL must match the
++   rules for mk[s]temp (i.e. end in "XXXXXX").  The name constructed
++   does not exist at the time of the call to mkstemp.  TMPL is
++   overwritten with the result.  */
++FILE* mkstempFILE (char *tmpl, const char *mode)
++{
++	int len;
++	char *XXXXXX;
++	static unsigned long long value;
++	unsigned long long random_time_bits;
++	unsigned int count;
++	FILE* fd = NULL;
++	int r;
++
++	/* A lower bound on the number of temporary files to attempt to
++	generate.  The maximum total number of temporary file names that
++	can exist for a given template is 62**6.  It should never be
++	necessary to try all these combinations.  Instead if a reasonable
++	number of names is tried (we define reasonable as 62**3) fail to
++	give the system administrator the chance to remove the problems.  */
++#define ATTEMPTS_MIN (62 * 62 * 62)
++
++	/* The number of times to attempt to generate a temporary file.  To
++	conform to POSIX, this must be no smaller than TMP_MAX.  */
++#if ATTEMPTS_MIN < TMP_MAX
++	unsigned int attempts = TMP_MAX;
++#else
++	unsigned int attempts = ATTEMPTS_MIN;
++#endif
++
++	if (num_temp_file_names >= max_temp_file_names)
++		return NULL;
++
++	len = strlen (tmpl);
++	if (len < 6 || strcmp (&tmpl[len - 6], "XXXXXX"))
++	{
++		return NULL;
++	}
++
++	/* This is where the Xs start.  */
++	XXXXXX = &tmpl[len - 6];
++
++	/* Get some more or less random data but unique per process */
++	{
++		static unsigned long long g_value;
++		g_value = _getpid();
++		g_value += 100;
++		random_time_bits = (((unsigned long long)234546 << 32)
++			| (unsigned long long)g_value);
++	}
++	value += random_time_bits ^ (unsigned long long)122434;
++
++	for (count = 0; count < attempts; value += 7777, ++count)
++	{
++		char* tmp_file_name = 0;
++		unsigned long long v = value;
++
++		/* Fill in the random bits.  */
++		XXXXXX[0] = letters[v % 62];
++		v /= 62;
++		XXXXXX[1] = letters[v % 62];
++		v /= 62;
++		XXXXXX[2] = letters[v % 62];
++		v /= 62;
++		XXXXXX[3] = letters[v % 62];
++		v /= 62;
++		XXXXXX[4] = letters[v % 62];
++		v /= 62;
++		XXXXXX[5] = letters[v % 62];
++
++		tmp_file_name = add_tmp_dir(tmpl);
++		/* file doesn't exist */
++		if (r = _access(tmp_file_name, 0) == -1)
++		{
++			fd = fopen (tmp_file_name, mode);
++			if (fd)
++			{
++				temp_file_names[num_temp_file_names] = tmp_file_name;
++				++num_temp_file_names;
++				return fd;
++			}
++		}
++
++		free(tmp_file_name);
++		tmp_file_name = 0;
++	}
++
++	/* We got out of the loop because we ran out of combinations to try.  */
++	return NULL;
++}
++
++/* delete all temp files */
++void unlinktemp()
++{
++	while (num_temp_file_names)
++	{
++		--num_temp_file_names;
++
++		if (_unlink(temp_file_names[num_temp_file_names]))
++			fprintf(stderr, _("error delete file %s"), temp_file_names[num_temp_file_names]);
++
++		free(temp_file_names[num_temp_file_names]);
++		temp_file_names[num_temp_file_names] = NULL;
++	}
++}
++
++#if 0
+ /* Allocate and initialize an external filter.
+  * @param chain the current chain or NULL for new chain
+  * @param cmd the command to execute.
+@@ -84,7 +226,7 @@ struct filter *filter_create_ext (struct filter *chain, const char *cmd,
+ 	va_end (ap);
+ 	return f;
+ }
+-
++#endif
+ /* Allocate and initialize an internal filter.
+  * @param chain the current chain or NULL for new chain
+  * @param filter_func The function that will perform the filtering.
+@@ -107,6 +249,8 @@ struct filter *filter_create_int (struct filter *chain,
+ 	f->next = NULL;
+ 	f->argc = 0;
+ 	f->argv = NULL;
++	f->in_file = NULL;
++	f->out_file = NULL;
+ 
+ 	f->filter_func = filter_func;
+ 	f->extra = extra;
+@@ -125,8 +269,63 @@ struct filter *filter_create_int (struct filter *chain,
+  *  @param chain The head of the chain.
+  *  @return true on success.
+  */
+-bool filter_apply_chain (struct filter * chain)
++bool filter_apply_chain (struct filter * chain, FILE* in_file, FILE* out_file)
+ {
++	char out_file_name[256] = "~X_flex_temp_XXXXXX";
++	static char file_num = '0';
++	FILE* mid_out_file = NULL;
++	int r;
++	bool result = true;
++
++	++file_num;
++	out_file_name[1] = file_num;
++
++	/* nothing to do */
++	if (!chain)
++		return true;
++
++	/* setup in/out files*/
++	chain->in_file = in_file;
++	if (chain->next)
++	{
++		mid_out_file = mkstempFILE(out_file_name, "wb+");
++		if (!mid_out_file)
++			flexerror (_("fail create temp file"));
++
++		chain->out_file = mid_out_file;
++	}
++	else
++	{
++		chain->out_file = out_file;
++	}
++
++	/* run current filter */
++	if (!chain->filter_func)
++		flexerror (_("fail call filter"));
++
++	r = chain->filter_func (chain);
++
++	if (r == -1)
++		flexfatal (_("filter_func failed"));
++
++	if (chain->next)
++	{
++		if (fseek(chain->out_file, 0, SEEK_SET) != 0)
++			flexerror(_("fseek failed"));
++
++		/* go to next filter */
++		result = filter_apply_chain(chain->next, chain->out_file, out_file);
++	}
++
++	/* close temp file */
++	if (mid_out_file)
++	{
++		if (fclose(mid_out_file))
++			lerr(_("error close file %s"), out_file_name);
++	}
++
++	return result;
++#if 0
+ 	int     pid, pipes[2];
+ 
+ 
+@@ -142,7 +341,6 @@ bool filter_apply_chain (struct filter * chain)
+ 	/* Now we are the right-most unprocessed link in the chain.
+ 	 */
+ 
+-#ifdef HAVE_FORK
+ 	fflush (stdout);
+ 	fflush (stderr);
+ 
+@@ -168,7 +366,6 @@ clearerr(stdin);
+ 			flexfatal (_("dup2(pipes[0],0)"));
+ 		close (pipes[0]);
+         fseek (stdin, 0, SEEK_CUR);
+-#endif
+         ungetc(' ', stdin); /* still an evil hack, but one that works better */
+         (void)fgetc(stdin); /* on NetBSD than the fseek attempt does */
+ 
+@@ -187,7 +384,6 @@ clearerr(stdin);
+                     chain->argv[0]);
+ 		}
+ 
+-#ifdef HAVE_FORK
+ 		FLEX_EXIT (1);
+ 	}
+ 
+@@ -197,9 +393,9 @@ clearerr(stdin);
+ 		flexfatal (_("dup2(pipes[1],1)"));
+ 	close (pipes[1]);
+     fseek (stdout, 0, SEEK_CUR);
+-#endif
+ 
+ 	return true;
++#endif
+ }
+ 
+ /** Truncate the chain to max_len number of filters.
+@@ -239,6 +435,7 @@ int filter_tee_header (struct filter *chain)
+ 	int     to_cfd = -1;
+ 	FILE   *to_c = NULL, *to_h = NULL;
+ 	bool    write_header;
++	FILE* header_out_file = NULL;
+ 
+ 	write_header = (chain->extra != NULL);
+ 
+@@ -247,16 +444,31 @@ int filter_tee_header (struct filter *chain)
+ 	 * stdout, and fork the rest of the chain again.
+ 	 */
+ 
++     /*
+ 	if ((to_cfd = dup (1)) == -1)
+ 		flexfatal (_("dup(1) failed"));
+ 	to_c = fdopen (to_cfd, "w");
++    */
++	if (!chain->out_file)
++		flexfatal (_("out_file failed"));
++
++	if (!chain->in_file)
++		flexfatal (_("in_file failed"));
++
++	to_c = chain->out_file;
+ 
+ 	if (write_header) {
++        /*
+ 		if (freopen ((char *) chain->extra, "w", stdout) == NULL)
+ 			flexfatal (_("freopen(headerfilename) failed"));
+ 
+ 		filter_apply_chain (chain->next);
+ 		to_h = stdout;
++        */
++		char tmp_file_name[256] = "~temp_header_file_XXXXXX";
++		to_h = mkstempFILE(tmp_file_name, "wb+");
++		if (!to_h)
++			flexfatal (_("fopen(headerfilename) failed"));
+ 	}
+ 
+ 	/* Now to_c is a pipe to the C branch, and to_h is a pipe to the H branch.
+@@ -290,7 +502,8 @@ int filter_tee_header (struct filter *chain)
+ 	buf = malloc((size_t) readsz);
+ 	if (!buf)
+ 		flexerror(_("malloc failed in filter_tee_header"));
+-	while (fgets (buf, readsz, stdin)) {
++	//while (fgets(buf, readsz, stdin)) {
++	while (fgets(buf, readsz, chain->in_file)) {
+ 		fputs (buf, to_c);
+ 		if (write_header)
+ 			fputs (buf, to_h);
+@@ -308,30 +521,142 @@ int filter_tee_header (struct filter *chain)
+ 		fputs ("m4_undefine( [[M4_YY_IN_HEADER]])m4_dnl\n", to_h);
+ 
+ 		fflush (to_h);
+-		if (ferror (to_h))
+-			lerr (_("error writing output file %s"),
+-				(char *) chain->extra);
+-
+-		else if (fclose (to_h))
+-			lerr (_("error closing output file %s"),
+-				(char *) chain->extra);
++		if (ferror(to_h))
++			lerr(_("error writing output file %s"),
++			(char *)chain->extra);
++		else
++		{
++			if (fseek(to_h, 0, SEEK_SET))
++				flexerror(_("fseek failed"));
++
++			header_out_file = fopen((char *)chain->extra, "wb");
++			if (!header_out_file)
++				flexfatal(_("fopen(headerfilename) failed"));
++
++			/* make branch for header file */
++			filter_apply_chain(chain->next, to_h, header_out_file);
++
++			/* cleanup */
++			if (fclose(to_h))
++				lerr(_("error closing output file 1 %s"),
++				(char *)chain->extra);
++
++			if (fclose(header_out_file))
++				lerr(_("error closing output file 2 %s"),
++				(char *)chain->extra);
++		}
+ 	}
+ 
+ 	fflush (to_c);
+ 	if (ferror (to_c))
+ 		lerr (_("error writing output file %s"),
+ 			outfilename ? outfilename : "<stdout>");
+-
++/*
+ 	else if (fclose (to_c))
+ 		lerr (_("error closing output file %s"),
+ 			outfilename ? outfilename : "<stdout>");
+ 
+-#ifdef HAVE_FORK
+ 	while (wait (0) > 0) ;
+ 
+ 	FLEX_EXIT (0);
+-#endif
+ 	return 0;
++    */
++	return 0;
++}
++
++int main_m4 (int argc, char const **argv, FILE* in, FILE* out);
++
++const char * m4_path()
++{
++    const char * m4 = NULL;
++    if ( !(m4 = getenv("M4"))) {
++        char *slash;
++        m4 = M4;
++        slash = strrchr(M4, '\\');
++        if (slash == NULL)
++            slash = strrchr(M4, '/');
++        if (slash != NULL) {
++            m4 = slash+1;
++            /* break up $PATH */
++            const char *path = getenv("PATH");
++            if (!path) {
++                m4 = M4;
++            } else {
++                int m4_length = strlen(m4);
++                do {
++                    size_t length = strlen(path);
++                    struct stat sbuf;
++
++                    const char *endOfPath = strchr(path, ';');
++                    if (!endOfPath)
++                        endOfPath = path+length;
++
++                    {
++                        const char *pathExt = getenv("PATEXT");
++                        if (!pathExt)
++                            pathExt = ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.RB;.RBW";
++
++                        const char *dot = strchr(m4, '.');
++
++                        char *m4_path = calloc(endOfPath-path + 1 + m4_length + 1, 1);
++
++                        memcpy(m4_path, path, endOfPath-path);
++                        m4_path[endOfPath-path] = '\\';
++                        memcpy(m4_path + (endOfPath-path) + 1, m4, m4_length + 1);
++                        if (stat(m4_path, &sbuf) == 0 &&
++                            (S_ISREG(sbuf.st_mode)) && sbuf.st_mode & S_IXUSR) {
++                            return m4_path;
++                        }
++                        free(m4_path);
++                        if (!dot) {
++
++                            do {
++                                size_t lengthOfPathExt = strlen(pathExt);
++                                const char * endOfPathExt = strchr(pathExt, ';');
++                                if (!endOfPathExt)
++                                    endOfPathExt = pathExt + lengthOfPathExt;
++
++                                char *m4_path = calloc(endOfPath-path + 1 + m4_length + 1 + endOfPathExt - pathExt, 1);
++                                memcpy(m4_path, path, endOfPath-path);
++                                m4_path[endOfPath-path] = '\\';
++                                memcpy(m4_path + (endOfPath-path) + 1, m4, m4_length + 1);
++                                memcpy(m4_path + (endOfPath-path) + 1 + m4_length , pathExt, endOfPathExt - pathExt);
++                                if (stat(m4_path, &sbuf) == 0 &&
++                                    (S_ISREG(sbuf.st_mode)) && sbuf.st_mode & S_IXUSR) {
++                                    return m4_path;
++                                }
++                                free(m4_path);
++
++                                pathExt = endOfPathExt + 1;
++                                if (endOfPathExt[0] == 0)
++                                    break;
++                            }
++                            while (pathExt[0]);
++                        }
++                    }
++                    path = endOfPath+1;
++                    if (endOfPath[0] == 0)
++                        break;
++                } while (path[0]);
++                if (!path[0])
++                    m4 = M4;
++            }
++        }
++    }
++    return m4;
++}
++
++
++int filter_m4_p (struct filter *chain)
++{
++    char const *argv[10];
++    int i = 0;
++
++    argv[i++] = m4_path();
++    argv[i++] = "-P";
++    argv[i++] = NULL;
++
++	return main_m4 (i-1, argv, chain->in_file, chain->out_file);
+ }
+ 
+ /** Adjust the line numbers in the #line directives of the generated scanner.
+@@ -355,7 +680,7 @@ int filter_fix_linedirs (struct filter *chain)
+ 	if (!buf)
+ 		flexerror(_("malloc failed in filter_fix_linedirs"));
+ 
+-	while (fgets (buf, (int) readsz, stdin)) {
++	while (fgets (buf, (int) readsz, chain->in_file/*stdin*/)) {
+ 
+ 		regmatch_t m[10];
+ 
+@@ -423,19 +748,88 @@ int filter_fix_linedirs (struct filter *chain)
+ 			last_was_blank = false;
+ 		}
+ 
+-		fputs (buf, stdout);
++		fputs (buf, chain->out_file/*stdout*/);
+ 		lineno++;
+ 	}
+-	fflush (stdout);
+-	if (ferror (stdout))
++	fflush (chain->out_file/*stdout*/);
++	if (ferror (chain->out_file/*stdout*/))
+ 		lerr (_("error writing output file %s"),
+ 			outfilename ? outfilename : "<stdout>");
+-
++/*
+ 	else if (fclose (stdout))
+ 		lerr (_("error closing output file %s"),
+ 			outfilename ? outfilename : "<stdout>");
+-
++*/
+ 	return 0;
+ }
+ 
++#ifdef _WIN32
++#include <windows.h>
++
++int main_m4 (int argc, char const **argv, FILE* in, FILE* out)
++{
++	STARTUPINFO si;
++	PROCESS_INFORMATION pi;
++	size_t len = 0;
++	char * CmdLine = NULL;
++	BOOL res = FALSE;
++	DWORD dwExitCode = 0;
++	int i;
++
++	memset(&si, 0, sizeof(si));
++	memset(&pi, 0, sizeof(pi));
++	si.cb = sizeof(si);
++	si.hStdOutput = (HANDLE)_get_osfhandle(_fileno(out));
++	si.hStdInput = (HANDLE)_get_osfhandle(_fileno(in));
++	si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
++	si.dwFlags = STARTF_USESTDHANDLES;
++
++	for (i = 0; i < argc; ++i)
++		len += strlen(argv[i]) + 1;
++	++len;
++
++	CmdLine = malloc(sizeof(char) * len);
++	if (!CmdLine)
++		return -1;
++	memset(CmdLine, 0, sizeof(char) * len);
++
++	for (i = 0; i < argc; ++i) {
++		strcat(CmdLine, argv[i]);
++		strcat(CmdLine, " ");
++	}
++
++	res = CreateProcess(NULL, CmdLine, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
++
++	free(CmdLine);
++
++	if (!res) {
++	    DWORD error = GetLastError();
++	    LPVOID lpMsgBuf;
++
++        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM  | FORMAT_MESSAGE_IGNORE_INSERTS,
++                NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR) &lpMsgBuf, 0, NULL);
++
++        fprintf(stderr, "PATH: %s\n", getenv("PATH"));
++        fprintf(stderr, "PATHEXT: %s\n", getenv("PATHEXT"));
++        fprintf(stderr, "CreateProcess(%s) failed with: %s\n", CmdLine, (LPCSTR) lpMsgBuf);
++        fflush(stderr);
++
++        LocalFree(lpMsgBuf);
++
++        return -1;
++    }
++
++	WaitForSingleObject(pi.hThread, INFINITE);
++	WaitForSingleObject(pi.hProcess, INFINITE);
++
++	GetExitCodeProcess(pi.hProcess, &dwExitCode);
++
++	CloseHandle(pi.hProcess);
++	CloseHandle(pi.hThread);
++
++	return (int) dwExitCode;
++}
++
++#endif /* _WIN32 */
++
+ /* vim:set expandtab cindent tabstop=4 softtabstop=4 shiftwidth=4 textwidth=0: */
+diff --git a/src/flexdef.h b/src/flexdef.h
+index 9dac654..d1011c2 100644
+--- a/src/flexdef.h
++++ b/src/flexdef.h
+@@ -1070,7 +1070,7 @@ extern bool no_section3_escape; /* True if the undocumented option --unsafe-no-m
+ /* For setjmp/longjmp (instead of calling exit(2)). Linkage in main.c */
+ extern jmp_buf flex_main_jmp_buf;
+ 
+-#define FLEX_EXIT(status) longjmp(flex_main_jmp_buf,(status)+1)
++#define FLEX_EXIT(status) exit(status)
+ 
+ /* Removes all \n and \r chars from tail of str. returns str. */
+ extern char *chomp (char *str);
+@@ -1112,7 +1112,9 @@ struct filter {
+     void * extra;         /**< extra data passed to filter_func */
+ 	int     argc;         /**< arg count */
+ 	const char ** argv;   /**< arg vector, \0-terminated */
+-    struct filter * next; /**< next filter or NULL */
++	FILE* in_file;
++	FILE* out_file;
++	struct filter * next; /**< next filter or NULL */
+ };
+ 
+ /* output filter chain */
+@@ -1121,10 +1123,15 @@ extern struct filter *filter_create_ext (struct filter * chain, const char *cmd,
+ struct filter *filter_create_int(struct filter *chain,
+ 				  int (*filter_func) (struct filter *),
+                   void *extra);
+-extern bool filter_apply_chain(struct filter * chain);
++extern bool filter_apply_chain(struct filter * chain, FILE* in_file, FILE* out_file);
+ extern int filter_truncate(struct filter * chain, int max_len);
+ extern int filter_tee_header(struct filter *chain);
+ extern int filter_fix_linedirs(struct filter *chain);
++extern int filter_m4_p(struct filter *chain);
++
++extern char* add_tmp_dir(const char* tmp_file_name);
++extern FILE* mkstempFILE(char *tmpl, const char *mode);
++extern void unlinktemp();
+ 
+ 
+ /*
+diff --git a/src/main.c b/src/main.c
+index 3a02d50..9d7f199 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -37,6 +37,7 @@
+ #include "options.h"
+ #include "tables.h"
+ #include "parse.h"
++#include <io.h>
+ 
+ static char flex_version[] = FLEX_VERSION;
+ 
+@@ -45,6 +46,7 @@ static char flex_version[] = FLEX_VERSION;
+ void flexinit(int, char **);
+ void readin(void);
+ void set_up_initial_allocations(void);
++static char *basename2 (char *path, int should_strip_ext, char **ext_path);
+ 
+ 
+ /* these globals are all defined and commented in flexdef.h */
+@@ -111,6 +113,9 @@ bool    tablesext, tablesverify, gentables;
+ char   *tablesfilename=0,*tablesname=0;
+ struct yytbl_writer tableswr;
+ 
++int     prev_stdout = 0;
++char   *flex_temp_out_main = 0;
++
+ /* Make sure program_name is initialized so we don't crash if writing
+  * out an error message before getting the program name from argv[0].
+  */
+@@ -137,7 +142,7 @@ int flex_main (int argc, char *argv[]);
+ 
+ int flex_main (int argc, char *argv[])
+ {
+-	int     i, exit_status, child_status;
++	int     i;// , exit_status, child_status;
+ 
+ 	/* Set a longjmp target. Yes, I know it's a hack, but it gets worse: The
+ 	 * return value of setjmp, if non-zero, is the desired exit code PLUS ONE.
+@@ -146,13 +151,13 @@ int flex_main (int argc, char *argv[])
+ 	 * specify a value of 0 to longjmp. FLEX_EXIT(n) should be used instead of
+ 	 * exit(n);
+ 	 */
++#if 0
+ 	exit_status = setjmp (flex_main_jmp_buf);
+ 	if (exit_status){
+         if (stdout && !_stdout_closed && !ferror(stdout)){
+             fflush(stdout);
+             fclose(stdout);
+         }
+-#ifdef HAVE_FORK
+         while (wait(&child_status) > 0){
+             if (!WIFEXITED (child_status)
+                 || WEXITSTATUS (child_status) != 0){
+@@ -163,11 +168,9 @@ int flex_main (int argc, char *argv[])
+ 
+             }
+         }
+-#else
+-        exit_status = 2;
+-#endif
+         return exit_status - 1;
+     }
++#endif
+ 
+ 	flexinit (argc, argv);
+ 
+@@ -314,9 +317,9 @@ void check_options (void)
+ 		}
+ 	}
+ 
+-	if (extra_type)
+-		buf_m4_define( &m4defs_buf, "M4_EXTRA_TYPE_DEFS", extra_type);
+-
++    if (extra_type)
++        buf_m4_define( &m4defs_buf, "M4_EXTRA_TYPE_DEFS", extra_type);
++/*
+ 	if (!use_stdout) {
+ 		FILE   *prev_stdout;
+ 
+@@ -341,10 +344,11 @@ void check_options (void)
+ 
+ 		outfile_created = 1;
+ 	}
+-
++*/
+ 
+     /* Setup the filter chain. */
+     output_chain = filter_create_int(NULL, filter_tee_header, headerfilename);
++#if 0
+     if ( !(m4 = getenv("M4"))) {
+ 	    char *slash;
+ 		m4 = M4;
+@@ -385,14 +389,25 @@ void check_options (void)
+ 		}
+ 	}
+     filter_create_ext(output_chain, m4, "-P", 0);
+-    filter_create_int(output_chain, filter_fix_linedirs, NULL);
++#endif
++	filter_create_int(output_chain, filter_m4_p, NULL);
++	filter_create_int(output_chain, filter_fix_linedirs, NULL);
+ 
+     /* For debugging, only run the requested number of filters. */
+-    if (preproc_level > 0) {
++/*    if (preproc_level > 0) {
+         filter_truncate(output_chain, preproc_level);
+         filter_apply_chain(output_chain);
+     }
+-    yyout = stdout;
++	*/
++
++	/* collect all output to temp file to use it as input for filter chain */
++	prev_stdout = _dup(1);   // prev_stdout now refers to "stdout"
++	freopen(flex_temp_out_main, "w+", stdout);
++
++	if (stdout == NULL)
++		lerr(_("could not create %s"), flex_temp_out_main);
++
++	yyout = stdout;
+ 
+ 
+ 	/* always generate the tablesverify flag. */
+@@ -419,7 +434,7 @@ void check_options (void)
+ 			snprintf (pname, nbytes, tablesfile_template, prefix);
+ 		}
+ 
+-		if ((tablesout = fopen (tablesfilename, FOPEN_MODE_WRITE)) == NULL)
++		if ((tablesout = fopen (tablesfilename, "wb")) == NULL)
+ 			lerr (_("could not create %s"), tablesfilename);
+ 		free(pname);
+ 		tablesfilename = 0;
+@@ -435,7 +450,7 @@ void check_options (void)
+ 			flexerror (_("could not write tables header"));
+ 	}
+ 
+-	if (skelname && (skelfile = fopen (skelname, FOPEN_MODE_READ)) == NULL)
++	if (skelname && (skelfile = fopen (skelname, "r")) == NULL)
+ 		lerr (_("can't open skeleton file %s"), skelname);
+ 
+ 	if (reentrant) {
+@@ -520,6 +535,72 @@ void flexend (int exit_status)
+ 	if (++called_before)
+ 		FLEX_EXIT (exit_status);
+ 
++	if (!exit_status)
++	{
++		FILE* out = NULL;
++
++		fflush(stdout);
++
++		/* process output */
++		if (fseek(stdout, 0, SEEK_SET))
++			flexerror(_("fseek for temp out failed"));
++
++		if (!use_stdout) {
++			if (!did_outfilename) {
++				char   *suffix;
++
++				if (C_plus_plus)
++					suffix = "cc";
++				else
++					suffix = "c";
++
++				snprintf(outfile_path, sizeof(outfile_path), outfile_template,
++					prefix, suffix);
++
++				outfilename = outfile_path;
++			}
++
++			out = fopen(outfilename, "wb+");
++			if (out == NULL)
++				lerr(_("could not create %s"), outfilename);
++
++			//outfile_created = 1;
++
++			/* For debugging, only run the requested number of filters. */
++			if (preproc_level > 0) {
++				filter_truncate(output_chain, preproc_level);
++				filter_apply_chain(output_chain, stdout, out);
++			}
++
++			if (fclose(out))
++				lerr(_("could not close %s"), outfilename);
++		}
++		else {
++			FILE* orig_stdout = _fdopen(prev_stdout, "w+");
++
++			if (orig_stdout == NULL)
++				lerr(_("stdout is not initialized"));
++
++			/* For debugging, only run the requested number of filters. */
++			if (preproc_level > 0) {
++				filter_truncate(output_chain, preproc_level);
++				filter_apply_chain(output_chain, stdout, orig_stdout);
++			}
++		}
++	}
++
++	/* cleanup temp file */
++	unlinktemp();
++
++	if (prev_stdout)
++	{
++		if (fclose(stdout))
++			lerr(_("error closing file %s"), flex_temp_out_main);
++
++		if (_unlink(flex_temp_out_main))
++			lerr(_("error deleting file %s"), flex_temp_out_main);
++	}
++
+ 	if (skelfile != NULL) {
+ 		if (ferror (skelfile))
+ 			lerr (_("input error reading skeleton file %s"),
+@@ -715,7 +796,7 @@ void flexend (int exit_status)
+ 		fflush (header_out);
+ 		fclose (header_out);
+ #endif
+-
++/*
+ 	if (exit_status != 0 && outfile_created) {
+ 		if (ferror (stdout))
+ 			lerr (_("error writing output file %s"),
+@@ -729,7 +810,7 @@ void flexend (int exit_status)
+ 			lerr (_("error deleting output file %s"),
+ 				outfilename);
+ 	}
+-
++*/
+ 
+ 	if (backing_up_report && backing_up_file) {
+ 		if (num_backing_up == 0)
+@@ -939,7 +1020,11 @@ void flexend (int exit_status)
+ 			 tblsiz);
+ 	}
+ 
+-	FLEX_EXIT (exit_status);
++	free(flex_temp_out_main);
++	flex_temp_out_main = 0;
++
++	exit(exit_status);
++//	FLEX_EXIT (exit_status);
+ }
+ 
+ 
+@@ -950,6 +1035,10 @@ void flexinit (int argc, char **argv)
+ 	int     i, sawcmpflag, rv, optind;
+ 	char   *arg;
+ 	scanopt_t sopt;
++	char *ext_path = 0;
++
++	char   *flex_temp_out_main_template = add_tmp_dir("~flex_temp_out_main_XXXXXX");
++	flex_temp_out_main = _mktemp(flex_temp_out_main_template);
+ 
+ 	printstats = syntaxerror = trace = spprdflt = false;
+ 	lex_compat = posix_compat = C_plus_plus = backing_up_report =
+@@ -998,10 +1087,12 @@ void flexinit (int argc, char **argv)
+     flex_init_regex();
+ 
+ 	/* Enable C++ if program name ends with '+'. */
+-	program_name = basename (argv[0]);
++	//program_name = basename (argv[0]);
++	program_name = basename2(argv[0], 0, &ext_path);
+ 
+-	if (program_name != NULL &&
+-	    program_name[strlen (program_name) - 1] == '+')
++//	if (program_name != NULL &&
++//	    program_name[strlen (program_name) - 1] == '+')
++	if (ext_path && *(--ext_path) == '+')
+ 		C_plus_plus = true;
+ 
+ 	/* read flags */
+@@ -1506,7 +1597,7 @@ void readin (void)
+ 	}
+ 
+ 	if (backing_up_report) {
+-		backing_up_file = fopen (backing_name, FOPEN_MODE_WRITE);
++		backing_up_file = fopen (backing_name, "wb");
+ 		if (backing_up_file == NULL)
+ 			lerr (_
+ 				("could not create backing-up info file %s"),
+@@ -1781,6 +1872,34 @@ void set_up_initial_allocations (void)
+ 	nultrans = NULL;
+ }
+ 
++/* extracts basename from path, optionally stripping the extension "\.*"
++* (same concept as /bin/sh `basename`, but different handling of extension). */
++static char *basename2(path, strip_ext, ext_path)
++char   *path;
++int strip_ext;		/* boolean */
++char **ext_path;
++{
++	char   *b, *e = 0;
++
++	b = path;
++	for (b = path; *path; path++)
++		if (*path == '/')
++			b = path + 1;
++		else if (*path == '\\')
++			b = path + 1;
++		else if (*path == '.')
++			e = path;
++
++	if (e && e > b)
++	{
++		if (strip_ext)
++			*e = '\0';
++		else if (ext_path)
++			*ext_path = e;
++	}
++
++	return b;
++}
+ 
+ void usage (void)
+ {
+-- 
+2.7.4.windows.1
+

@@ -16,8 +16,14 @@ class ConanfileBase(ConanFile):
     author = "Bincrafters <bincrafters@gmail.com>"
     exports = ["LICENSE.md"]
     exports_sources = ["patches/*.patch"]
+    requires = ("m4_installer/1.4.18@bincrafters/stable",)
 
     _source_subfolder = "source_subfolder"
+
+    def build_requirements(self):
+        if tools.os_info.is_windows:
+            if "CONAN_BASH_PATH" not in os.environ:
+                self.build_requires("msys2_installer/latest@bincrafters/stable")
 
     def source(self):
         sha256 = "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995"
@@ -66,16 +72,14 @@ class ConanfileBase(ConanFile):
         if tools.os_info.is_windows:
             self._apply_patches()
         env_build = AutoToolsBuildEnvironment(self, win_bash=tools.os_info.is_windows)
-        configure_args = ["--disable-nls"]
+        configure_args = ["--disable-nls", "HELP2MAN=/bin/true", "M4=m4"]
         if "shared" in self.options and self.options.shared:
             configure_args.extend(["--enable-shared", "--disable-static"])
         else:
             configure_args.extend(["--disable-shared", "--enable-static"])
 
-        if str(self.settings.compiler) == "gcc" and float(str(self.settings.compiler.version)) >= 6:
-            configure_args.append("ac_cv_func_reallocarray=no")
         with tools.chdir(self._source_subfolder):
-            if tools.os_info.is_windows:
+            if self._the_os == "Windows":
                 tools.save("regex.h", "#define PCRE2_CODE_UNIT_WIDTH 8\n#include <pcre2posix.h>")
                 if not os.path.isdir("sys"):
                     os.makedirs("sys")

@@ -1,0 +1,26 @@
+From f9a5d463d19a48074585691dff962ea9c3750357 Mon Sep 17 00:00:00 2001
+From: SSE4 <tomskside@gmail.com>
+Date: Fri, 10 May 2019 13:49:25 +0700
+Subject: [PATCH] - disable man
+
+Signed-off-by: SSE4 <tomskside@gmail.com>
+---
+ doc/Makefile.am | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/doc/Makefile.am b/doc/Makefile.am
+index 523aa97..f9d4bec 100644
+--- a/doc/Makefile.am
++++ b/doc/Makefile.am
+@@ -1,7 +1,7 @@
+ FLEX = $(top_builddir)/src/flex$(EXEEXT)
+ 
+ info_TEXINFOS =	flex.texi
+-dist_man_MANS = flex.1
++dist_man_MANS =
+ MAINTAINERCLEANFILES = flex.1
+ 
+ CLEANFILES = *.aux *.cp *.cps *.fn *.fns *.hk *.hks *.ky *.log \
+-- 
+2.7.4.windows.1
+
