@@ -2,13 +2,13 @@
 
 import os
 import shutil
-from conanfile_base import ConanfileBase
+from conanfile_base import ConanFileBase
 
 
-class ConanfileInstaller(ConanfileBase):
-    name = "flex_installer"
-    version = ConanfileBase.version
-    exports = ConanfileBase.exports + ["conanfile_base.py"]
+class ConanFileInstaller(ConanFileBase):
+    name = ConanFileBase._base_name + "_installer"
+    version = ConanFileBase.version
+    exports = ConanFileBase.exports + ["conanfile_base.py"]
 
     settings = "os_build", "arch_build", "compiler", "arch"
 
@@ -22,7 +22,7 @@ class ConanfileInstaller(ConanfileBase):
         self.env_info.PATH.append(bindir)
 
     def package(self):
-        super(ConanfileInstaller, self).package()
+        super(ConanFileInstaller, self).package()
         libdir = os.path.join(self.package_folder, "lib")
         incdir = os.path.join(self.package_folder, "include")
         if os.path.isdir(libdir):

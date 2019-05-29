@@ -4,9 +4,8 @@ import platform
 from conans import ConanFile, AutoToolsBuildEnvironment, tools
 
 
-class ConanfileBase(ConanFile):
+class ConanFileBase(ConanFile):
     _base_name = "flex"
-    name = "flex"
     version = "2.6.4"
     url = "https://github.com/bincrafters/conan-flex"
     homepage = "https://github.com/westes/flex"
