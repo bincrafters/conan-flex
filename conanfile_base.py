@@ -21,7 +21,7 @@ class ConanFileBase(ConanFile):
     def build_requirements(self):
         if tools.os_info.is_windows:
             if "CONAN_BASH_PATH" not in os.environ:
-                self.build_requires("msys2/20161025")
+                self.build_requires("msys2/20190524")
 
     def source(self):
         sha256 = "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995"
