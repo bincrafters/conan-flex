@@ -12,7 +12,6 @@ class ConanFileBase(ConanFile):
     description = "Flex, the fast lexical analyzer generator"
     topics = ("conan", "flex", "lex", "lexer", "lexical analyzer generator")
     license = "BSD-2-Clause"
-    author = "Bincrafters <bincrafters@gmail.com>"
     exports = ["LICENSE.md"]
     exports_sources = ["patches/*.patch"]
     requires = ("m4_installer/1.4.18@bincrafters/stable",)
@@ -22,7 +21,7 @@ class ConanFileBase(ConanFile):
     def build_requirements(self):
         if tools.os_info.is_windows:
             if "CONAN_BASH_PATH" not in os.environ:
-                self.build_requires("msys2_installer/latest@bincrafters/stable")
+                self.build_requires("msys2/20161025")
 
     def source(self):
         sha256 = "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995"
@@ -32,10 +31,11 @@ class ConanFileBase(ConanFile):
 
     def configure(self):
         del self.settings.compiler.libcxx
+        del self.settings.compiler.cppstd
 
     def requirements(self):
         if tools.os_info.is_windows:
-            self.requires("pcre2/10.32@bincrafters/stable")
+            self.requires("pcre2/10.33")
 
     def _apply_patches(self):
         for filename in sorted(glob.glob("patches/*.patch")):
