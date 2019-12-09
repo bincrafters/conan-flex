@@ -61,3 +61,4 @@ matrix:
         env: CONAN_APPLE_CLANG_VERSIONS=9.1 CONAN_ARCHS=x86_64 ARCH=x86_64 CPT_TEST_FOLDER=test_package_installer CONAN_CONANFILE=conanfile_installer.py
 
 import: bincrafters/templates:.ci/travis-macos.yml@master
+# bincrafters-conventions:no-new-compiler-versions
