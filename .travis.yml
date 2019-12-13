@@ -5,6 +5,9 @@ linux: &linux
   python: "3.7"
   services:
     - docker
+osx: &osx
+  os: osx
+  language: generic
 stages:
   - installer
   - default  # default are all non-installer jobs
