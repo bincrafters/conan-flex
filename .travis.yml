@@ -25,6 +25,9 @@ matrix:
       - stage: default
         <<: *linux
         env: CONAN_GCC_VERSIONS=7 CONAN_DOCKER_IMAGE=conanio/gcc7
+      - stage: installer
+        <<: *linux
+        env: CONAN_GCC_VERSIONS=7 CONAN_DOCKER_IMAGE=conanio/gcc7-centos6 CONAN_ARCHS=x86_64 ARCH=x86_64 CPT_TEST_FOLDER=test_package_installer CONAN_CONANFILE=conanfile_installer.py
       - stage: default
         <<: *linux
         env: CONAN_GCC_VERSIONS=8 CONAN_DOCKER_IMAGE=conanio/gcc8
@@ -50,15 +53,10 @@ matrix:
         <<: *linux
         env: CONAN_CLANG_VERSIONS=8 CONAN_DOCKER_IMAGE=conanio/clang8
       - stage: installer
-        <<: *linux
-        env: CONAN_GCC_VERSIONS=7 CONAN_DOCKER_IMAGE=conanio/gcc7-centos6-x86 CONAN_ARCHS=x86 ARCH=x86 CPT_TEST_FOLDER=test_package_installer CONAN_CONANFILE=conanfile_installer.py
-      - stage: installer
-        <<: *linux
-        env: CONAN_GCC_VERSIONS=7 CONAN_DOCKER_IMAGE=conanio/gcc7-centos6 CONAN_ARCHS=x86_64 ARCH=x86_64 CPT_TEST_FOLDER=test_package_installer CONAN_CONANFILE=conanfile_installer.py
-      - stage: installer
         <<: *osx
         osx_image: xcode9.4
         env: CONAN_APPLE_CLANG_VERSIONS=9.1 CONAN_ARCHS=x86_64 ARCH=x86_64 CPT_TEST_FOLDER=test_package_installer CONAN_CONANFILE=conanfile_installer.py
+
 
 import: bincrafters/templates:.ci/travis-macos.yml@master
 # bincrafters-conventions:no-new-compiler-versions
